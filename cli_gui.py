@@ -1,0 +1,410 @@
+import os
+import json
+import tomllib
+import google.generativeai as genai
+from supabase import create_client, Client
+from supabase_auth.types import Session
+
+
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, 
+                               QVBoxLayout, QHBoxLayout, QLineEdit, 
+                               QPushButton, QMessageBox, QTableWidget, QTableWidgetItem)
+from PySide6.QtCore import Qt
+
+class InventoryApp(QMainWindow):
+    def __init__(self, user_session: Session):
+        super().__init__()
+        self.user_session = user_session
+        self.supabase = None
+        self.gemini_model = None
+        self.is_admin = False
+        self.employee_id = None
+        self.system_prompt = ""
+
+        self.setWindowTitle("디저트 재고 관리 시스템")
+        self.setGeometry(100, 100, 800, 600)
+
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.main_layout = QVBoxLayout(self.central_widget)
+
+        # Inventory Display
+        self.inventory_display = QTableWidget()
+        self.inventory_display.setEditTriggers(QTableWidget.NoEditTriggers) # Make it non-editable
+        self.inventory_display.setColumnCount(2)
+        self.inventory_display.setHorizontalHeaderLabels(["제품명", "수량"])
+        self.main_layout.addWidget(self.inventory_display)
+
+        # Input Line and Button
+        self.input_layout = QHBoxLayout()
+        self.input_line = QLineEdit()
+        self.input_line.setPlaceholderText("명령을 입력하세요...")
+        self.input_button = QPushButton("입력")
+        self.input_button.clicked.connect(self.process_input)
+        self.input_line.returnPressed.connect(self.process_input)
+
+        self.input_layout.addWidget(self.input_line)
+        self.input_layout.addWidget(self.input_button)
+        self.main_layout.addLayout(self.input_layout)
+
+        self.initialize_backend()
+        self.update_inventory_display()
+
+    def initialize_backend(self):
+        try:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            # supabase.json 로드
+            supabase_json_path = os.path.join(base_path, 'supabase.json')
+            with open(supabase_json_path, 'r') as f:
+                config = json.load(f)
+                url: str = config.get("URL")
+                key: str = config.get("API")
+                gemini_api_key: str = config.get("GEMINI_API_KEY")
+                self.service_role_key: str = config.get("SERVICE_ROLE_API")
+            
+            if not all([url, key, gemini_api_key, self.service_role_key]):
+                raise ValueError("supabase.json에 URL, API, GEMINI_API_KEY, SERVICE_ROLE_API가 모두 필요합니다.")
+            
+            # prompts.toml 로드
+            prompts_toml_path = os.path.join(base_path, 'prompts.toml')
+            with open(prompts_toml_path, "rb") as f:
+                cfg = tomllib.load(f)
+
+            base_prompt_str   = cfg["base_prompt"]
+            admin_actions_str = cfg["admin_actions"]
+            common_actions_str= cfg["common_actions"]
+
+            if not all([base_prompt_str, admin_actions_str, common_actions_str]):
+                raise ValueError("prompts.toml 파일에 필요한 프롬프트 섹션이 누락되었습니다.")
+
+            self.supabase = create_client(url, key)
+            genai.configure(api_key=gemini_api_key)
+            self.gemini_model = genai.GenerativeModel(model_name='gemini-2.0-flash')
+
+            self.supabase.auth.set_session(self.user_session.session.access_token, self.user_session.session.refresh_token)
+
+            # 사용자 역할 확인
+            user_email = self.user_session.user.email
+            self.employee_id = user_email.split('@')[0]
+            
+            try:
+                response = self.supabase.rpc('get_my_role').execute()
+                user_role = response.data
+                if user_role == '관리자':
+                    self.is_admin = True
+            except Exception as e:
+                self.show_message("오류", f"사용자 역할 확인 중 오류 발생: {e}")
+                return
+
+            # 역할에 따른 시스템 프롬프트 동적 생성
+            self.system_prompt = base_prompt_str
+            if self.is_admin:
+                self.system_prompt += admin_actions_str + common_actions_str.replace("- 'decrement'", "4. 'decrement'")
+            else:
+                self.system_prompt += common_actions_str.replace("- 'decrement'", "1. 'decrement'")
+
+            self.show_message("환영합니다!", "디저트 재고 관리 시스템에 오신 것을 환영합니다!")
+            self.show_message("로그인 정보", f"로그인된 사용자: {user_email} ({ '관리자' if self.is_admin else '일반'})")
+
+        except Exception as e:
+            self.show_message("초기화 오류", f"초기화 오류: {e}")
+
+    def show_message(self, title, message):
+        QMessageBox.information(self, title, message)
+
+    def update_inventory_display(self):
+        try:
+            if self.supabase:
+                data, count = self.supabase.table("inventory").select("product_name, quantity").execute()
+                
+                self.inventory_display.setRowCount(0) # Clear existing rows
+                
+                if data[1]:
+                    for row_idx, product in enumerate(data[1]):
+                        self.inventory_display.insertRow(row_idx)
+                        self.inventory_display.setItem(row_idx, 0, QTableWidgetItem(str(product['product_name'])))
+                        self.inventory_display.setItem(row_idx, 1, QTableWidgetItem(str(product['quantity'])))
+                else:
+                    self.inventory_display.setRowCount(1)
+                    self.inventory_display.setItem(0, 0, QTableWidgetItem("재고가 비어있습니다."))
+                    self.inventory_display.setItem(0, 1, QTableWidgetItem("")) # Empty cell for quantity
+            else:
+                self.inventory_display.setRowCount(1)
+                self.inventory_display.setItem(0, 0, QTableWidgetItem("재고 정보를 불러올 수 없습니다. 백엔드 초기화 실패."))
+                self.inventory_display.setItem(0, 1, QTableWidgetItem("")) # Empty cell for quantity
+        except Exception as e:
+            self.show_message("재고 현황 업데이트 오류", f"재고 현황을 불러오는 중 오류 발생: {e}")
+
+    def process_input(self):
+        command = self.input_line.text().strip()
+        self.input_line.clear()
+
+        if not command:
+            return
+
+        if command.lower() == 'exit':
+            self.close()
+            return
+
+        self.inventory_display.append(f"> {command}")
+
+        full_prompt = self.system_prompt + "\n사용자 요청: " + command
+        
+        try:
+            gemini_response = self.gemini_model.generate_content(full_prompt)
+            response_text = gemini_response.text.strip()
+            
+            if response_text.startswith('```json'):
+                response_text = response_text.lstrip('```json').strip()
+            if response_text.endswith('```'):
+                response_text = response_text.rstrip('```').strip()
+
+            tasks_to_execute = []
+            try:
+                if response_text.startswith('['):
+                    tasks_to_execute = json.loads(response_text)
+                elif response_text.startswith('{'):
+                    tasks_to_execute = [json.loads(response_text)]
+                else:
+                    fixed_text = f"[{response_text.replace('}{', ',')}]"
+                    tasks_to_execute = json.loads(fixed_text)
+
+            except json.JSONDecodeError:
+                self.show_message("오류", "Gemini가 보낸 응답이 올바른 JSON 형식이 아닙니다.\n받은 내용:" + response_text)
+                return
+            except Exception as e:
+                self.show_message("오류", f"JSON 파싱 중 알 수 없는 오류: {e}\n받은 내용:" + response_text)
+                return
+
+            for task in tasks_to_execute:
+                action = task.get("action")
+                payload = task.get("payload", {})
+
+                if action in ["query_all", "query_one", "increment", "show_purchase_logs", "delete_item", "add_employee", "delete_employee"] and not self.is_admin:
+                    self.show_message("오류", "이 명령을 실행할 권한이 없습니다.")
+                    continue
+
+                if action == "query_all":
+                    data, count = self.supabase.table("inventory").select("product_name, quantity").execute()
+                    if not data[1]:
+                        self.inventory_display.append("  -> 재고가 비어있습니다.")
+                    else:
+                        self.inventory_display.append("  -> 현재 재고:")
+                        for product in data[1]:
+                            self.inventory_display.append(f"    - {product['product_name']}: {product['quantity']}개")
+
+                elif action == "decrement":
+                    product_name = payload.get("name")
+                    change_quantity = payload.get("quantity", 0)
+                    if not product_name or change_quantity <= 0:
+                        self.show_message("오류", "제품명과 수량이 명확하지 않습니다.")
+                        continue
+                    
+                    data, count = self.supabase.table("inventory").select("item_id, quantity").eq("product_name", product_name).execute()
+                    if not data[1]:
+                        self.show_message("오류", f"'{product_name}'을(를) 찾을 수 없습니다.")
+                        continue
+
+                    item_id = data[1][0]['item_id']
+                    current_quantity = data[1][0]['quantity']
+
+                    if current_quantity < change_quantity:
+                        self.show_message("오류", f"'{product_name}'의 재고({current_quantity}개)가 부족합니다!")
+                        continue
+                    
+                    self.inventory_display.append(f"  -> '{product_name}' {change_quantity}개 차감 및 로그 기록...")
+                    new_quantity = current_quantity - change_quantity
+                    self.supabase.table("inventory").update({"quantity": new_quantity}).eq("product_name", product_name).execute()
+                    
+                    self.supabase.table("purchase_logs").insert({
+                        "employee_id": self.employee_id,
+                        "item_id": item_id,
+                        "product_name": product_name,
+                        "quantity": change_quantity
+                    }).execute()
+                    self.inventory_display.append(f"  -> 완료! '{product_name}'의 현재 재고는 {new_quantity}개 입니다.")
+
+                elif action == "increment":
+                    product_name = payload.get("name")
+                    change_quantity = payload.get("quantity", 0)
+                    if not product_name or change_quantity <= 0:
+                        self.show_message("오류", "제품명과 수량이 명확하지 않습니다.")
+                        continue
+
+                    data, count = self.supabase.table("inventory").select("id, quantity").eq("product_name", product_name).execute()
+                    current_quantity = data[1][0]['quantity'] if data[1] else 0
+                    new_quantity = current_quantity + change_quantity
+                    
+                    self.inventory_display.append(f"  -> '{product_name}' {change_quantity}개 추가...")
+                    if not data[1]:
+                        insert_response = self.supabase.table("inventory").insert({
+                            "product_name": product_name, 
+                            "quantity": new_quantity
+                        }).execute()
+
+                        if insert_response.data:
+                            newly_inserted_id = insert_response.data[0]['id']
+                            
+                            self.supabase.table("inventory").update({
+                                "item_id": newly_inserted_id
+                            }).eq("id", newly_inserted_id).execute()
+                    else:
+                        self.supabase.table("inventory").update({"quantity": new_quantity}).eq("product_name", product_name).execute()
+                    self.inventory_display.append(f"  -> 완료! '{product_name}'의 현재 재고는 {new_quantity}개 입니다.")
+
+                elif action == "query_one":
+                    product_name = payload.get("name")
+                    if not product_name:
+                        self.show_message("오류", "제품명이 명확하지 않습니다.")
+                        continue
+                    
+                    data, count = self.supabase.table("inventory").select("quantity").eq("product_name", product_name).execute()
+                    if data[1]:
+                        self.inventory_display.append(f"  -> '{product_name}'의 현재 재고는 {data[1][0]['quantity']}개 입니다.")
+                    else:
+                        self.inventory_display.append(f"  -> '{product_name}'은(는) 재고에 없습니다.")
+                
+                elif action == "show_purchase_logs":
+                    self.inventory_display.append("  -> 최근 구매 로그를 조회합니다...")
+                    response = self.supabase.rpc('get_purchase_logs_kst').execute()
+                    if not response.data:
+                        self.inventory_display.append("  -> 구매 기록이 없습니다.")
+                    else:
+                        self.inventory_display.append("  -> 최근 구매 기록 (최대 20개):")
+                        for log in response.data:
+                            self.inventory_display.append(f"    - 일시: {log['created_at']}, 사용자: {log['employee_id']}, 품목ID: {log['item_id']}, 제품: {log['product_name']}, 수량: {log['quantity']}개")
+                
+                elif action == "delete_item":
+                    product_name = payload.get("name")
+                    if not product_name:
+                        self.show_message("오류", "삭제할 제품명이 명확하지 않습니다.")
+                        continue
+                    
+                    self.inventory_display.append(f"  -> '{product_name}'을(를) 재고에서 삭제합니다...")
+                    data, count = self.supabase.table("inventory").delete().eq("product_name", product_name).execute()
+                    
+                    if data[1]:
+                         self.inventory_display.append(f"  -> 완료! '{product_name}'이(가) 재고에서 삭제되었습니다.")
+                    else:
+                         self.inventory_display.append(f"  -> 오류: '{product_name}'을(를) 찾을 수 없거나 삭제하지 못했습니다.")
+
+                elif action == "add_employee":
+                    employee_id_to_add = payload.get("employee_id")
+                    name = payload.get("name")
+                    password = payload.get("password")
+                    role = payload.get("role", "")
+
+                    if not all([employee_id_to_add, name, password]):
+                        self.show_message("오류", "사번, 이름, 비밀번호는 필수입니다.")
+                        continue
+                    
+                    email = f"{employee_id_to_add}@company.test"
+                    self.inventory_display.append(f"  -> 인증 계정 생성 중: {email}...")
+                    
+                    try:
+                        auth_response = self.supabase.auth.sign_up({"email": email, "password": password})
+                        
+                        if auth_response.user:
+                            auth_user_id = auth_response.user.id
+                            self.inventory_display.append(f"  -> 인증 계정 생성 완료. 임직원 정보 추가 중...")
+                            
+                            data, count = self.supabase.table("employees").insert({
+                                "employee_id": employee_id_to_add,
+                                "name": name,
+                                "role": role,
+                                "auth_user_id": auth_user_id
+                            }).execute()
+
+                            if data[1]:
+                                self.inventory_display.append(f"  -> 완료! 임직원 '{name}'이(가) 추가되었습니다.")
+                            else:
+                                self.show_message("오류", "임직원 정보 추가에 실패했습니다. 생성된 인증 계정을 수동으로 삭제해야 할 수 있습니다.")
+                        else:
+                            self.show_message("오류", f"인증 계정 생성에 실패했습니다. {auth_response}")
+
+                    except Exception as e:
+                        self.show_message("오류", f"계정 생성 중 오류 발생: {e}")
+
+                elif action == "delete_employee":
+                    employee_id_to_delete = payload.get("employee_id")
+                    name = payload.get("name")
+                    
+                    if not employee_id_to_delete and not name:
+                        self.show_message("오류", "사번 또는 이름은 필수입니다.")
+                        continue
+
+                    self.inventory_display.append("  -> 삭제할 임직원의 인증 정보를 조회합니다...")
+                    query = self.supabase.table("employees").select("auth_user_id")
+                    if employee_id_to_delete:
+                        query = query.eq("employee_id", employee_id_to_delete)
+                    else:
+                        query = query.eq("name", name)
+                    
+                    data, count = query.execute()
+
+                    if not data[1]:
+                        self.show_message("오류", "해당 임직원을 찾을 수 없습니다.")
+                        continue
+
+                    auth_user_id_to_delete = data[1][0].get('auth_user_id')
+
+                    if not auth_user_id_to_delete:
+                        self.show_message("오류", "해당 임직원의 인증 계정 정보를 찾을 수 없습니다. 테이블 정보만 삭제합니다.")
+                        if employee_id_to_delete:
+                            self.supabase.table("employees").delete().eq("employee_id", employee_id_to_delete).execute()
+                        else:
+                            self.supabase.table("employees").delete().eq("name", name).execute()
+                        self.inventory_display.append("  -> 완료! employees 테이블에서만 임직원이 삭제되었습니다.")
+                        continue
+
+                    try:
+                        self.inventory_display.append(f"  -> 인증 계정 삭제 중: {auth_user_id_to_delete}...")
+                        admin_supabase: Client = create_client(self.url, self.service_role_key)
+                        admin_supabase.auth.admin.delete_user(auth_user_id_to_delete)
+                        self.inventory_display.append("  -> 인증 계정 삭제 완료. 임직원 정보 삭제 중...")
+                        
+                        if employee_id_to_delete:
+                            self.supabase.table("employees").delete().eq("employee_id", employee_id_to_delete).execute()
+                        else:
+                            self.supabase.table("employees").delete().eq("name", name).execute()
+                        
+                        self.inventory_display.append(f"  -> 완료! 임직원이 삭제되었습니다.")
+
+                    except Exception as e:
+                        self.show_message("오류", f"임직원 삭제 중 오류 발생: {e}")
+
+                else:
+                    self.show_message("오류", f"알 수 없는 action '{action}' 입니다.")
+
+        except Exception as e:
+            self.show_message("처리 중 오류", f"처리 중 오류가 발생했습니다: {e}")
+
+def main(user_session: Session):
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    window = InventoryApp(user_session)
+    window.show()
+    app.exec()
+
+# This part is for testing the GUI directly, remove or guard in production
+# if __name__ == "__main__":
+#     # Dummy user_session for testing purposes
+#     class DummyUser:
+#         def __init__(self, email):
+#             self.email = email
+#     class DummySessionData:
+#         def __init__(self, access_token, refresh_token):
+#             self.access_token = access_token
+#             self.refresh_token = refresh_token
+#     class DummySession:
+#         def __init__(self, session_data, user):
+#             self.session = session_data
+#             self.user = user
+
+#     dummy_user = DummyUser(email="test@company.test")
+#     dummy_session_data = DummySessionData(access_token="your_access_token", refresh_token="your_refresh_token")
+#     dummy_user_session = DummySession(session_data=dummy_session_data, user=dummy_user)
+
+#     main(dummy_user_session)
