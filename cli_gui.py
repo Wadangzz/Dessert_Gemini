@@ -46,7 +46,7 @@ class InventoryApp(QMainWindow):
         # 입력 라인과 버튼
         self.input_layout = QHBoxLayout()
         self.input_line = QLineEdit()
-        self.input_line.setPlaceholderText("명령을 입력하세요...")
+        self.input_line.setPlaceholderText("명령을 입력하세요")
         self.input_button = QPushButton("전송")
         self.input_button.clicked.connect(self.process_input)
         self.input_line.returnPressed.connect(self.process_input)
@@ -55,7 +55,7 @@ class InventoryApp(QMainWindow):
         self.input_layout.addWidget(self.input_button)
         left_layout.addLayout(self.input_layout)
 
-        # --- 오른쪽 패널 (재고 현황) ---
+        # 오른쪽 패널 (재고 현황)
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(10, 10, 10, 10)
@@ -223,13 +223,13 @@ class InventoryApp(QMainWindow):
                 action = task.get("action")
                 payload = task.get("payload", {})
 
-                if action in ["query_all", "query_one", "increment", "show_purchase_logs", "delete_item", "add_employee", "delete_employee"] and not self.is_admin:
+                if action in ["query_all", "query_one", "increment", "show_purchase_logs", "delete_item", "add_employee", "delete_employee", "query_employees"] and not self.is_admin:
                     self.show_message("오류", "이 명령을 실행할 권한이 없습니다.")
                     continue
 
                 if action == "query_all":
                     self.update_inventory_display()
-                    self.chat_display.append("<p style='color: #555; margin-left: 10px;'>-&gt; 재고 현황을 새로고침했습니다.</p>")
+                    self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 재고 현황을 새로고침했습니다.</p></div>")
 
                 elif action == "decrement":
                     product_name = payload.get("name")
@@ -259,7 +259,7 @@ class InventoryApp(QMainWindow):
                         "product_name": product_name,
                         "quantity": change_quantity
                     }).execute()
-                    self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; '{product_name}' {change_quantity}개가 차감되었습니다. 현재 재고: {new_quantity}개</p>")
+                    self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> '{product_name}' {change_quantity}개가 차감되었습니다. 현재 재고: {new_quantity}개</p></div>")
                     self.update_inventory_display()
 
                 elif action == "increment":
@@ -287,7 +287,7 @@ class InventoryApp(QMainWindow):
                             }).eq("id", newly_inserted_id).execute()
                     else:
                         self.supabase.table("inventory").update({"quantity": new_quantity}).eq("product_name", product_name).execute()
-                    self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; '{product_name}' {change_quantity}개가 추가되었습니다. 현재 재고: {new_quantity}개</p>")
+                    self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> '{product_name}' {change_quantity}개가 추가되었습니다. 현재 재고: {new_quantity}개</p></div>")
                     self.update_inventory_display()
 
                 elif action == "query_one":
@@ -298,21 +298,42 @@ class InventoryApp(QMainWindow):
                     
                     data, count = self.supabase.table("inventory").select("quantity").eq("product_name", product_name).execute()
                     if data[1]:
-                        self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; '{product_name}'의 현재 재고는 {data[1][0]['quantity']}개 입니다.</p>")
+                        self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> '{product_name}'의 현재 재고는 {data[1][0]['quantity']}개 입니다.</p></div>")
                     else:
-                        self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; '{product_name}'은(는) 재고에 없습니다.</p>")
+                        self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> '{product_name}'은(는) 재고에 없습니다.</p></div>")
                 
                 elif action == "show_purchase_logs":
-                    self.chat_display.append("<p style='color: #555; margin-left: 10px;'>-&gt; 최근 구매 로그를 조회합니다...</p>")
+                    self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 최근 구매 로그를 조회합니다...</p></div>")
                     response = self.supabase.rpc('get_purchase_logs_kst').execute()
                     if not response.data:
-                        self.chat_display.append("<p style='color: #555; margin-left: 10px;'>-&gt; 구매 기록이 없습니다.</p>")
+                        self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 구매 기록이 없습니다.</p></div>")
                     else:
-                        log_html = "<p style='color: #555; margin-left: 10px;'>-&gt; <b>최근 구매 기록 (최대 20개):</b></p>"
-                        log_html += "<table border='1' style='border-collapse: collapse; margin-left: 10px;'><tr><th>일시</th><th>사용자</th><th>제품</th><th>수량</th></tr>"
+                        log_html = "<div align='left'><p style='color: #555; margin-left: 10px;'>-> <b>최근 구매 기록 (최대 20개):</b></p>"
+                        table_attributes = "border='0' style='width: 95%; border-collapse: collapse; margin-left: 10px; font-family: sans-serif;"
+                        th_attributes = "style='background-color: #f2f2f2; color: #333; text-align: left; padding: 10px; border-bottom: 2px solid #ccc;"
+                        td_attributes = "style='padding: 10px; border-bottom: 1px solid #eee;'"
+                        log_html += f"<table {table_attributes}>"
+                        log_html += f"<thead><tr><th {th_attributes}>일시</th><th {th_attributes}>사용자</th><th {th_attributes}>제품</th><th {th_attributes}>수량</th></tr></thead><tbody>"
                         for log in response.data:
-                            log_html += f"<tr><td>{log['created_at']}</td><td>{log['employee_id']}</td><td>{log['product_name']}</td><td>{log['quantity']}</td></tr>"
-                        log_html += "</table>"
+                            log_html += f"<tr><td {td_attributes}>{log.get('created_at_kst', '')}</td><td {td_attributes}>{log.get('employee_id', '')}</td><td {td_attributes}>{log.get('product_name', '')}</td><td {td_attributes}>{log.get('quantity', '')}</td></tr>"
+                        log_html += "</tbody></table></div>"
+                        self.chat_display.append(log_html)
+                
+                elif action == "query_employees":
+                    self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 직원 목록을 조회합니다...</p></div>")
+                    response = self.supabase.table("employees").select("employee_id, name, role").execute()
+                    if not response.data:
+                        self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 등록된 직원이 없습니다.</p></div>")
+                    else:
+                        log_html = "<div align='left'><p style='color: #555; margin-left: 10px;'>-> <b>직원 목록:</b></p>"
+                        table_attributes = "border='0' style='width: 95%; border-collapse: collapse; margin-left: 10px; font-family: sans-serif;"
+                        th_attributes = "style='background-color: #f2f2f2; color: #333; text-align: left; padding: 10px; border-bottom: 2px solid #ccc;"
+                        td_attributes = "style='padding: 10px; border-bottom: 1px solid #eee;'"
+                        log_html += f"<table {table_attributes}>"
+                        log_html += f"<thead><tr><th {th_attributes}>사번</th><th {th_attributes}>이름</th><th {th_attributes}>역할</th></tr></thead><tbody>"
+                        for employee in response.data:
+                            log_html += f"<tr><td {td_attributes}>{employee.get('employee_id', '')}</td><td {td_attributes}>{employee.get('name', '')}</td><td {td_attributes}>{employee.get('role', '')}</td></tr>"
+                        log_html += "</tbody></table></div>"
                         self.chat_display.append(log_html)
                 
                 elif action == "delete_item":
@@ -324,10 +345,10 @@ class InventoryApp(QMainWindow):
                     data, count = self.supabase.table("inventory").delete().eq("product_name", product_name).execute()
                     
                     if data[1]:
-                         self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; '{product_name}'이(가) 재고에서 삭제되었습니다.</p>")
+                         self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> '{product_name}'이(가) 재고에서 삭제되었습니다.</p></div>")
                          self.update_inventory_display()
                     else:
-                         self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; 오류: '{product_name}'을(를) 찾을 수 없거나 삭제하지 못했습니다.</p>")
+                         self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> 오류: '{product_name}'을(를) 찾을 수 없거나 삭제하지 못했습니다.</p></div>")
 
                 elif action == "add_employee":
                     employee_id_to_add = payload.get("employee_id")
@@ -355,7 +376,7 @@ class InventoryApp(QMainWindow):
                             }).execute()
 
                             if data[1]:
-                                self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; 임직원 '{name}'이(가) 추가되었습니다.</p>")
+                                self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> 임직원 '{name}'이(가) 추가되었습니다.</p></div>")
                             else:
                                 self.show_message("오류", "임직원 정보 추가에 실패했습니다. 생성된 인증 계정을 수동으로 삭제해야 할 수 있습니다.")
                         else:
@@ -391,7 +412,7 @@ class InventoryApp(QMainWindow):
                             self.supabase.table("employees").delete().eq("employee_id", employee_id_to_delete).execute()
                         else:
                             self.supabase.table("employees").delete().eq("name", name).execute()
-                        self.chat_display.append("<p style='color: #555; margin-left: 10px;'>-&gt; employees 테이블에서만 임직원이 삭제되었습니다.</p>")
+                        self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> employees 테이블에서만 임직원이 삭제되었습니다.</p></div>")
                         continue
 
                     try:
@@ -403,14 +424,14 @@ class InventoryApp(QMainWindow):
                         else:
                             self.supabase.table("employees").delete().eq("name", name).execute()
                         
-                        self.chat_display.append(f"<p style='color: #555; margin-left: 10px;'>-&gt; 임직원이 삭제되었습니다.</p>")
+                        self.chat_display.append(f"<div align='left'><p style='color: #555; margin-left: 10px;'>-> 임직원이 삭제되었습니다.</p></div>")
 
                     except Exception as e:
                         self.show_message("오류", f"임직원 삭제 중 오류 발생: {e}")
 
                 elif action == "error":
                     error_message = payload.get("message", "알 수 없는 오류입니다.")
-                    self.chat_display.append(f"<p style='color: red; margin-left: 10px;'>-&gt; 오류: {error_message}</p>")
+                    self.chat_display.append(f"<div align='left'><p style='color: red; margin-left: 10px;'>-> 오류: {error_message}</p></div>")
 
                 else:
                     # Gemini가 JSON action을 반환하지 않고 일반 텍스트로만 응답한 경우, 그대로 채팅창에 표시

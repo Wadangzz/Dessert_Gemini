@@ -16,7 +16,7 @@ from supabase import create_client, Client
 from supabase_auth.errors import AuthApiError
 from pathlib import Path
 from cli_gui import main
-# from cli import start_cli
+from cli import start_cli
 
 # Supabase 클라이언트 설정
 

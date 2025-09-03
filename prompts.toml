@@ -44,6 +44,10 @@ admin_actions = """
 7. 'delete_employee': 기존 임직원을 삭제합니다.
  - 예시: "임직원 삭제 사번 1234", "사용자 삭제 이름 홍길동"
  - JSON 형식: {"action": "delete_employee", "payload": {"employee_id": "사번"}} 또는 {"action": "delete_employee", "payload": {"name": "이름"}}
+
+8. 'query_employees': 직원 목록, 직원 리스트, 사용자 목록을 보여줍니다.
+ - 예시: "직원 목록 보여줘", "직원 리스트 알려줘", "사용자 목록 좀"
+ - JSON 형식: {"action": "query_employees", "payload": {}}
 """
 
 common_actions = """
