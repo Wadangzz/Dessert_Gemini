@@ -18,7 +18,7 @@ def start_cli(user_session: Session):
             url: str = config.get("URL")
             key: str = config.get("API")
             gemini_api_key: str = config.get("GEMINI_API_KEY")
-            service_role_key: str = config.get("SERVICE_ROLE_API") # Added service_role_key
+            service_role_key: str = config.get("SERVICE_ROLE_API")
         
         if not all([url, key, gemini_api_key, service_role_key]):
             raise ValueError("supabase.json에 URL, API, GEMINI_API_KEY, SERVICE_ROLE_API가 모두 필요합니다.")

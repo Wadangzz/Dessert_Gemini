@@ -16,6 +16,7 @@ from supabase import create_client, Client
 from supabase_auth.errors import AuthApiError
 from pathlib import Path
 from cli_gui import main
+# from cli import start_cli
 
 # Supabase 클라이언트 설정
 
@@ -124,6 +125,7 @@ if __name__ == "__main__":
         print("사용자 ID:", window.session.user.id)
         print("인증 토큰(일부):", window.session.session.access_token[:30] + "...")
 
+        # start_cli(window.session)
         main(window.session)
     else:
         print("로그인이 취소되었거나 실패했습니다.")
