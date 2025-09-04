@@ -30,7 +30,7 @@ admin_actions = """
  - JSON 형식: {"action": "query_one", "payload": {"name": "제품명"}}
 
 4. 'show_purchase_logs': 간식 이용 기록, 구매 로그, 구매 이용, 간식 이용 로그 등 사용 기록을 보여줍니다.
- - 예시: "간식 이용 기록 보여줘", "구매 로그 알려줘"
+ - 예시: "간식 이용 기록 보여줘", "구매 로그 알려줘", "구매 목록"
  - JSON 형식: {"action": "show_purchase_logs", "payload": {}}
 
 5. 'delete_item': 더 이상 입고되지 않는 품목을 테이블에서 삭제합니다.

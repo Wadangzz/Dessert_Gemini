@@ -309,8 +309,13 @@ class InventoryApp(QMainWindow):
                         self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 구매 기록이 없습니다.</p></div>")
                     else:
                         log_html = "<div align='left'><p style='color: #555; margin-left: 10px;'>-> <b>최근 구매 기록 (최대 20개):</b></p>"
-                        table_attributes = "border='0' style='width: 95%; border-collapse: collapse; margin-left: 10px; font-family: sans-serif;"
-                        th_attributes = "style='background-color: #f2f2f2; color: #333; text-align: left; padding: 10px; border-bottom: 2px solid #ccc;"
+                        table_attributes = "border='0' style='width:95%; table-layout:fixed; border-collapse:collapse; margin-left:10px; font-family:sans-serif;'"
+
+                        th_attributes = (
+                            "style='background:#ddd; color:#000; text-align:center; "
+                            "padding:8px; border-bottom:2px solid #666; font-weight:bold; "
+                            "white-space:nowrap;'"
+                        )
                         td_attributes = "style='padding: 10px; border-bottom: 1px solid #eee;'"
                         log_html += f"<table {table_attributes}>"
                         log_html += f"<thead><tr><th {th_attributes}>일시</th><th {th_attributes}>사용자</th><th {th_attributes}>제품</th><th {th_attributes}>수량</th></tr></thead><tbody>"
@@ -326,8 +331,13 @@ class InventoryApp(QMainWindow):
                         self.chat_display.append("<div align='left'><p style='color: #555; margin-left: 10px;'>-> 등록된 직원이 없습니다.</p></div>")
                     else:
                         log_html = "<div align='left'><p style='color: #555; margin-left: 10px;'>-> <b>직원 목록:</b></p>"
-                        table_attributes = "border='0' style='width: 95%; border-collapse: collapse; margin-left: 10px; font-family: sans-serif;"
-                        th_attributes = "style='background-color: #f2f2f2; color: #333; text-align: left; padding: 10px; border-bottom: 2px solid #ccc;"
+                        table_attributes = "border='0' style='width:95%; table-layout:fixed; border-collapse:collapse; margin-left:10px; font-family:sans-serif;'"
+
+                        th_attributes = (
+                            "style='background:#ddd; color:#000; text-align:center; "
+                            "padding:8px; border-bottom:2px solid #666; font-weight:bold; "
+                            "white-space:nowrap;'"
+                        )
                         td_attributes = "style='padding: 10px; border-bottom: 1px solid #eee;'"
                         log_html += f"<table {table_attributes}>"
                         log_html += f"<thead><tr><th {th_attributes}>사번</th><th {th_attributes}>이름</th><th {th_attributes}>역할</th></tr></thead><tbody>"
