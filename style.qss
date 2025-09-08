@@ -105,3 +105,51 @@ QSplitter::handle:vertical {
 QSplitter::handle:hover {
     background-color: #dcdfe6;
 }
+
+
+/* --- Login Dialog Styles --- */
+#LoginDialog {
+    background-color: #f7f7f7; 
+}
+
+#LoginDialog #titleLabel {
+    font-size: 28px;
+     font-weight: bold;
+     color: #409eff; 
+     padding-bottom: 20px;
+}
+
+#LoginDialog QLineEdit {
+    font-size: 16px;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #ffffff;
+}
+
+#LoginDialog QLineEdit:focus {
+    border-color: #409eff;
+}
+
+#LoginDialog #loginButton {
+    font-size: 16px;
+    font-weight: bold;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: #409eff;
+    color: white;
+}
+
+#LoginDialog #loginButton:hover {
+    background-color: #66b1ff;
+}
+
+#LoginDialog #loginButton:pressed {
+    background-color: #3a8ee6;
+}
+
+#LoginDialog #status {
+    font-size: 15px;
+     font-weight: bold;
+     padding-bottom: 5px;
+}
