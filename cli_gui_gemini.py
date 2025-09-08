@@ -8,6 +8,8 @@ import tomllib
 import google.generativeai as genai
 from supabase import create_client, Client
 from supabase_auth.types import Session
+from pydantic import BaseModel, Field
+from typing import Literal, Union
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, 
