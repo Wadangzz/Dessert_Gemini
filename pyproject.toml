@@ -11,4 +11,6 @@ dependencies = [
     "pyside6>=6.9.2",
     "supabase>=2.18.1",
     "supabase-auth>=2.12.3",
+    "python-dotenv>=1.0.1",
+    "dotenv>=0.9.9",
 ]

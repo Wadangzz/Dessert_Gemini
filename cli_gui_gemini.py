@@ -10,6 +10,8 @@ from supabase import create_client
 from supabase_auth.types import Session
 from pydantic import BaseModel, Field
 from typing import Literal, Union
+import sys
+from dotenv import load_dotenv
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, 
@@ -20,6 +22,16 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QEvent
 from html_templates import HTMLTemplates as tmpl
 from login_dialog import LoginDialog
+
+if getattr(sys, 'frozen', False):
+    # PyInstaller에 의해 번들된 경우, 실행 파일의 디렉토리를 사용
+    application_path = os.path.dirname(sys.executable)
+else:
+    # 일반 Python 환경에서 실행된 경우, 스크립트 파일의 디렉토리를 사용
+    application_path = os.path.dirname(os.path.abspath(__file__))
+
+dotenv_path = os.path.join(application_path, '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
 class InventoryApp(QMainWindow):
     def __init__(self, user_session: Session = None):
@@ -132,11 +144,8 @@ class InventoryApp(QMainWindow):
             employee_id, password = login_dialog.get_credentials()
             email = f"{employee_id}@company.test"
             try:
-                base_path = os.path.dirname(os.path.abspath(__file__))
-                with open(os.path.join(base_path,'supabase.json'), 'r') as f:
-                    config = json.load(f)
-                    url = config.get("URL")
-                    key = config.get("API")
+                url = os.getenv("URL")
+                key = os.getenv("API")
                 
                 temp_supabase = create_client(url, key)
                 self.user_session = temp_supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -167,17 +176,18 @@ class InventoryApp(QMainWindow):
 
     def initialize_backend(self):
         try:
-            base_path = os.path.dirname(os.path.abspath(__file__))
+            if getattr(sys, 'frozen', False):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
             
-            with open(os.path.join(base_path, 'supabase.json'), 'r') as f:
-                config = json.load(f)
-                self.url: str = config.get("URL")
-                key: str = config.get("API")
-                gemini_api_key: str = config.get("GEMINI_API_KEY")
-                self.service_role_key: str = config.get("SERVICE_ROLE_API")
+            self.url = os.getenv("URL")
+            key = os.getenv("API")
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            self.service_role_key = os.getenv("SERVICE_ROLE_API")
             
             if not all([self.url, key, gemini_api_key, self.service_role_key]):
-                raise ValueError("supabase.json에 필요한 모든 키가 없습니다.")
+                raise ValueError(".env에 필요한 모든 키가 없습니다.")
             
             with open(os.path.join(base_path, 'prompts.toml'), "rb") as f:
                 cfg = tomllib.load(f)
@@ -455,7 +465,10 @@ def main(user_session: Session):
         app = QApplication([])
     
     try:
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.dirname(os.path.abspath(__file__))
         qss_path = os.path.join(base_path, 'style.qss')
         with open(qss_path, 'r') as f:
             app.setStyleSheet(f.read())
