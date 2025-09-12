@@ -6,19 +6,18 @@ import os
 import json
 import tomllib
 import google.generativeai as genai
-from supabase import create_client, Client
+from supabase import create_client
 from supabase_auth.types import Session
 from pydantic import BaseModel, Field
 from typing import Literal, Union
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, 
-    QVBoxLayout, QHBoxLayout, QLineEdit, 
+    QVBoxLayout, QHBoxLayout, QTabWidget,
     QPushButton, QTableWidget, QTableWidgetItem,
-    QTextEdit, QSplitter, QHeaderView, QDialog, QTabWidget
+    QTextEdit, QSplitter, QHeaderView, QDialog
 )
 from PySide6.QtCore import Qt, QEvent
-from PySide6.QtGui import QKeyEvent
 from html_templates import HTMLTemplates as tmpl
 from login_dialog import LoginDialog
 
@@ -58,6 +57,7 @@ class InventoryApp(QMainWindow):
         self.input_line.installEventFilter(self)
 
         self.input_button = QPushButton("전송")
+        self.input_button.setFixedHeight(90)
         self.input_button.clicked.connect(self.process_input)
 
         self.input_layout.addWidget(self.input_line)
